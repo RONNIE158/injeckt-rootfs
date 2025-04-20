@@ -2,8 +2,8 @@ architecture: arm64
 
 actions:
   - action: Unpack
-    description: Unpack extracted rootfs
-    directory: base/rootfs
+    description: Extract bundled rootfs
+    file: rootfs.tar.xz
 
   - action: Run
     chroot: true
@@ -14,7 +14,7 @@ actions:
       apt update
 
   - action: Apt
-    description: Install additional packages
+    description: Install packages
     packages:
       - openssh-server
       - sudo
@@ -44,7 +44,7 @@ actions:
 
   - action: Run
     chroot: true
-    description: Setup user lindroid dan SSH
+    description: Tambahkan user & atur SSH + SDDM
     script: |
       useradd -m -s /bin/bash lindroid
       echo "lindroid:lindroid" | chpasswd
