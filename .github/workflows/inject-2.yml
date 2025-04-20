@@ -24,7 +24,6 @@ jobs:
       - name: Download rootfs
         run: |
           wget https://images.linuxcontainers.org/images/debian/trixie/arm64/cloud/20250420_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
-          # Menambahkan file public-key.asc
           cp public-key.asc base/public-key.asc
 
       - name: Extract rootfs
@@ -32,48 +31,47 @@ jobs:
           mkdir -p rootfs
           tar -xf base/rootfs.tar.xz -C rootfs
 
-      - name: Prepare Debos script (inject.yaml)
+      - name: Create Debos script (inject.yaml)
         run: |
           echo "architecture: arm64" > inject.yaml
           echo "actions:" >> inject.yaml
-          echo "  - action: Run" >> inject.yaml
-          echo "    description: Setup Lindroid repo" >> inject.yaml
+          echo "  - name: Setup Lindroid repo" >> inject.yaml
           echo "    chroot: true" >> inject.yaml
           echo "    script: |" >> inject.yaml
           echo "      cp /build/sources/public-key.asc /usr/share/keyrings/lindroid.asc" >> inject.yaml
           echo "      echo \"deb [signed-by=/usr/share/keyrings/lindroid.asc] https://repo.lindroid.org/repository/lindroid trixie main\" > /etc/apt/sources.list.d/lindroid.list" >> inject.yaml
           echo "      apt update" >> inject.yaml
-          echo "  - action: Apt" >> inject.yaml
-          echo "    description: Install Lindroid + KDE packages" >> inject.yaml
-          echo "    packages:" >> inject.yaml
-          echo "      - lindroid-quirks" >> inject.yaml
-          echo "      - nano" >> inject.yaml
-          echo "      - strace" >> inject.yaml
-          echo "      - sudo" >> inject.yaml
-          echo "      - sddm" >> inject.yaml
-          echo "      - adduser" >> inject.yaml
-          echo "      - locales" >> inject.yaml
-          echo "      - desktop-base" >> inject.yaml
-          echo "      - evtest" >> inject.yaml
-          echo "      - kde-full" >> inject.yaml
-          echo "      - kwin-wayland" >> inject.yaml
-          echo "      - qtwayland5" >> inject.yaml
-          echo "      - maliit-keyboard" >> inject.yaml
-          echo "      - sddm-theme-debian-breeze" >> inject.yaml
-          echo "      - plasma-workspace" >> inject.yaml
-          echo "      - firefox-esr" >> inject.yaml
-          echo "      - drihybris" >> inject.yaml
-          echo "      - iproute2" >> inject.yaml
-          echo "      - libpipewire-module-lindroid" >> inject.yaml
-          echo "      - libcanberra-pulse" >> inject.yaml
-          echo "      - pipewire-audio" >> inject.yaml
-          echo "      - wireplumber" >> inject.yaml
-          echo "      - pipewire-pulse" >> inject.yaml
-          echo "      - pipewire-alsa" >> inject.yaml
-          echo "      - pipewire-jack" >> inject.yaml
-          echo "      - openssh-server" >> inject.yaml
-          echo "  - action: Run" >> inject.yaml
-          echo "    description: Setup user & SSH" >> inject.yaml
+          echo "  - name: Install Lindroid + KDE packages" >> inject.yaml
+          echo "    chroot: true" >> inject.yaml
+          echo "    apt:" >> inject.yaml
+          echo "      packages:" >> inject.yaml
+          echo "        - lindroid-quirks" >> inject.yaml
+          echo "        - nano" >> inject.yaml
+          echo "        - strace" >> inject.yaml
+          echo "        - sudo" >> inject.yaml
+          echo "        - sddm" >> inject.yaml
+          echo "        - adduser" >> inject.yaml
+          echo "        - locales" >> inject.yaml
+          echo "        - desktop-base" >> inject.yaml
+          echo "        - evtest" >> inject.yaml
+          echo "        - kde-full" >> inject.yaml
+          echo "        - kwin-wayland" >> inject.yaml
+          echo "        - qtwayland5" >> inject.yaml
+          echo "        - maliit-keyboard" >> inject.yaml
+          echo "        - sddm-theme-debian-breeze" >> inject.yaml
+          echo "        - plasma-workspace" >> inject.yaml
+          echo "        - firefox-esr" >> inject.yaml
+          echo "        - drihybris" >> inject.yaml
+          echo "        - iproute2" >> inject.yaml
+          echo "        - libpipewire-module-lindroid" >> inject.yaml
+          echo "        - libcanberra-pulse" >> inject.yaml
+          echo "        - pipewire-audio" >> inject.yaml
+          echo "        - wireplumber" >> inject.yaml
+          echo "        - pipewire-pulse" >> inject.yaml
+          echo "        - pipewire-alsa" >> inject.yaml
+          echo "        - pipewire-jack" >> inject.yaml
+          echo "        - openssh-server" >> inject.yaml
+          echo "  - name: Setup user & SSH" >> inject.yaml
           echo "    chroot: true" >> inject.yaml
           echo "    script: |" >> inject.yaml
           echo "      useradd -m -s /bin/bash lindroid" >> inject.yaml
@@ -82,17 +80,17 @@ jobs:
           echo "      echo \"Port 555\" >> /etc/ssh/sshd_config" >> inject.yaml
           echo "      systemctl enable ssh" >> inject.yaml
           echo "      systemctl enable sddm" >> inject.yaml
-          echo "  - action: Run" >> inject.yaml
-          echo "    description: Clean up APT cache" >> inject.yaml
+          echo "  - name: Clean up APT cache" >> inject.yaml
           echo "    chroot: true" >> inject.yaml
           echo "    script: |" >> inject.yaml
           echo "      apt clean" >> inject.yaml
-          echo "  - action: Pack" >> inject.yaml
-          echo "    description: Repack final rootfs" >> inject.yaml
-          echo "    file: out/lindroid-custom-rootfs.tar.gz" >> inject.yaml
+          echo "  - name: Repack final rootfs" >> inject.yaml
+          echo "    pack:" >> inject.yaml
+          echo "      path: out/lindroid-custom-rootfs.tar.gz" >> inject.yaml
 
       - name: Run Debos
         run: |
+          cd /github/workspace
           sudo debos --disable-fakemachine inject.yaml
 
       - name: Upload final RootFS as artifact
