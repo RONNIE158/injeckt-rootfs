@@ -2,19 +2,19 @@ architecture: arm64
 
 actions:
   - action: Unpack
-    description: Gunzip rootfs hasil ekstraksi manual
+    description: Unpack extracted rootfs
     directory: base/rootfs
 
   - action: Run
     chroot: true
-    description: Tambah repo Lindroid dan update
+    description: Setup repo Lindroid + update
     script: |
       cp /root/public-key.asc /etc/apt/trusted.gpg.d/
       echo "deb https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid-production.list
       apt update
 
   - action: Apt
-    description: Install desktop, audio, network, dev tools
+    description: Install additional packages
     packages:
       - openssh-server
       - sudo
@@ -58,5 +58,5 @@ actions:
     script: apt clean
 
   - action: Pack
-    description: Buat arsip rootfs final
-    file: out/lindroid-custom-rootfs.tar.gz
+    description: Repack final rootfs
+    file: out/lindroid-rootfs.tar.gz
