@@ -1,0 +1,106 @@
+name: Build Lindroid RootFS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build RootFS
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y debos wget qemu-user-static
+
+      - name: Download rootfs
+        run: |
+          wget https://images.linuxcontainers.org/images/debian/trixie/arm64/cloud/20250420_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
+          # Menambahkan file public-key.asc
+          cp public-key.asc base/public-key.asc
+
+      - name: Extract rootfs
+        run: |
+          mkdir -p rootfs
+          tar -xf base/rootfs.tar.xz -C rootfs
+
+      - name: Prepare Debos script (inject.yaml)
+        run: |
+          cat > inject.yaml <<EOF
+architecture: arm64
+
+actions:
+  - action: Run
+    description: Setup Lindroid repo
+    chroot: true
+    script: |
+      cp /build/sources/public-key.asc /usr/share/keyrings/lindroid.asc
+      echo "deb [signed-by=/usr/share/keyrings/lindroid.asc] https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid.list
+      apt update
+
+  - action: Apt
+    description: Install Lindroid + KDE packages
+    packages:
+      - lindroid-quirks
+      - nano
+      - strace
+      - sudo
+      - sddm
+      - adduser
+      - locales
+      - desktop-base
+      - evtest
+      - kde-full
+      - kwin-wayland
+      - qtwayland5
+      - maliit-keyboard
+      - sddm-theme-debian-breeze
+      - plasma-workspace
+      - firefox-esr
+      - drihybris
+      - iproute2
+      - libpipewire-module-lindroid
+      - libcanberra-pulse
+      - pipewire-audio
+      - wireplumber
+      - pipewire-pulse
+      - pipewire-alsa
+      - pipewire-jack
+      - openssh-server
+
+  - action: Run
+    description: Setup user & SSH
+    chroot: true
+    script: |
+      useradd -m -s /bin/bash lindroid
+      echo "lindroid:lindroid" | chpasswd
+      echo "PermitRootLogin no" >> /etc/ssh/sshd_config
+      echo "Port 555" >> /etc/ssh/sshd_config
+      systemctl enable ssh
+      systemctl enable sddm
+
+  - action: Run
+    description: Clean up APT cache
+    chroot: true
+    script: |
+      apt clean
+
+  - action: Pack
+    description: Repack final rootfs
+    file: out/lindroid-custom-rootfs.tar.gz
+EOF
+
+      - name: Run Debos
+        run: |
+          sudo debos --disable-fakemachine inject.yaml
+
+      - name: Upload final RootFS as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lindroid-custom-rootfs
+          path: out/lindroid-custom-rootfs.tar.gz
+          retention-days: 1
