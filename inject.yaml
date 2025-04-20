@@ -2,61 +2,64 @@ architecture: arm64
 
 actions:
   - action: Unpack
-    description: Extract bundled rootfs
-    file: rootfs.tar.xz
+    description: Extract rootfs
+    file: base/rootfs.tar.xz
 
   - action: Run
+    description: Setup Lindroid repo
     chroot: true
-    description: Setup repo Lindroid + update
     script: |
-      cp /root/public-key.asc /etc/apt/trusted.gpg.d/
-      echo "deb https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid-production.list
+      cp /build/sources/public-key.asc /usr/share/keyrings/lindroid.asc
+      echo "deb [signed-by=/usr/share/keyrings/lindroid.asc] https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid.list
       apt update
 
   - action: Apt
-    description: Install packages
+    description: Install Lindroid + KDE packages
     packages:
-      - openssh-server
-      - sudo
-      - sddm
-      - kde-full
       - lindroid-quirks
-      - qtwayland5
-      - plasma-workspace
-      - maliit-keyboard
-      - sddm-theme-debian-breeze
-      - drihybris
       - nano
       - strace
+      - sudo
+      - sddm
       - adduser
       - locales
       - desktop-base
       - evtest
+      - kde-full
+      - kwin-wayland
+      - qtwayland5
+      - maliit-keyboard
+      - sddm-theme-debian-breeze
+      - plasma-workspace
+      - firefox-esr
+      - drihybris
       - iproute2
+      - libpipewire-module-lindroid
+      - libcanberra-pulse
       - pipewire-audio
+      - wireplumber
       - pipewire-pulse
       - pipewire-alsa
       - pipewire-jack
-      - wireplumber
-      - libcanberra-pulse
-      - libpipewire-module-lindroid
-      - firefox-esr
+      - openssh-server
 
   - action: Run
+    description: Setup user & SSH
     chroot: true
-    description: Tambahkan user & atur SSH + SDDM
     script: |
       useradd -m -s /bin/bash lindroid
       echo "lindroid:lindroid" | chpasswd
-      echo "lindroid ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/lindroid
+      echo "PermitRootLogin no" >> /etc/ssh/sshd_config
       echo "Port 555" >> /etc/ssh/sshd_config
       systemctl enable ssh
-      echo -e "[Autologin]\nUser=lindroid\nSession=plasma" > /etc/sddm.conf
+      systemctl enable sddm
 
   - action: Run
+    description: Clean up APT
     chroot: true
-    script: apt clean
+    script: |
+      apt clean
 
   - action: Pack
     description: Repack final rootfs
-    file: out/lindroid-rootfs.tar.gz
+    file: out/lindroid-custom-rootfs.tar.gz
