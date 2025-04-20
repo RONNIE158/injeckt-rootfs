@@ -90,7 +90,7 @@ jobs:
 
       - name: Run Debos
         run: |
-          cd /github/workspace
+          cd $GITHUB_WORKSPACE
           sudo debos --disable-fakemachine inject.yaml
 
       - name: Upload final RootFS as artifact
