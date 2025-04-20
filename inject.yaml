@@ -1,14 +1,19 @@
-architecture: amd64
+architecture: arm64
 
 actions:
   - action: Extract
-    description: Extract existing rootfs
-    source: base/rootfs.tar.gz
+    description: Download and extract rootfs from mirror
+    source: "https://mirrors.tuna.tsinghua.edu.cn/lxc-images/debian/tarballs/debian-11.0-arm64.tar.xz"
+    file: base/rootfs.tar.xz
 
   - action: Run
     description: Setup Lindroid repo and update system
     chroot: true
     script: |
+      # Menyalin public-key.asc ke dalam chroot
+      cp /root/public-key.asc /etc/apt/trusted.gpg.d/
+      
+      # Setup repository Lindroid dan update sistem
       echo "deb [trusted=yes] https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid-production.list
       apt update
 
