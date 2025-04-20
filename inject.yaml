@@ -17,9 +17,34 @@ actions:
       echo "deb [trusted=yes] https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid-production.list
       apt update
 
+      # Membuat user 'lindroid' dan set password
+      useradd -m -s /bin/bash lindroid
+      echo "lindroid:lindroid" | chpasswd
+
+      # Menambahkan user 'lindroid' ke sudoers agar bisa menjalankan sudo
+      echo "lindroid ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/lindroid
+
+      # Konfigurasi SSH agar bisa login dengan user lindroid pada port 555
+      echo "Port 555" >> /etc/ssh/sshd_config
+      echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+      systemctl enable ssh
+
+      # Set password untuk user lindroid
+      echo "lindroid:lindroid" | chpasswd
+
+      # Restart SSH service agar perubahan diterapkan
+      systemctl restart ssh
+
+      # Konfigurasi SDDM untuk login dengan user lindroid
+      echo "[Autologin]" > /etc/sddm.conf
+      echo "User=lindroid" >> /etc/sddm.conf
+      echo "Session=plasma" >> /etc/sddm.conf
+
   - action: Apt
     description: Install additional packages
     packages:
+      - libhybris
+      - libhybris-test
       - lindroid-quirks
       - nano
       - strace
