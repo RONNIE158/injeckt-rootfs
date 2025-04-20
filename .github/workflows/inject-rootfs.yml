@@ -1,12 +1,12 @@
-name: Build Lindroid Custom RootFS
+name: Build Lindroid RootFS
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Inject Lindroid into RootFS
     runs-on: ubuntu-22.04
+    name: Inject Lindroid Packages
 
     steps:
       - name: Checkout repo
@@ -15,24 +15,22 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y debos wget tar xz-utils qemu-user-static
+          sudo apt install -y debos qemu-user-static wget xz-utils
 
-      - name: Download base rootfs (Debian Trixie)
+      - name: Download rootfs from linuxcontainers.org
         run: |
           mkdir -p base/rootfs
-          wget https://mirrors.tuna.tsinghua.edu.cn/lxc-images/debian/trixie/arm64/default/20240410_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
+          wget https://images.linuxcontainers.org/images/debian/trixie/arm64/default/20240410_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
           sudo tar -xpf base/rootfs.tar.xz -C base/rootfs
 
-      - name: Copy Lindroid GPG Key
-        run: |
-          sudo cp public-key.asc /root/public-key.asc
+      - name: Copy public-key.asc
+        run: sudo cp public-key.asc /root/public-key.asc
 
       - name: Run Debos
-        run: |
-          sudo debos --disable-fakemachine inject.yaml
+        run: sudo debos --disable-fakemachine inject.yaml
 
-      - name: Upload final rootfs artifact
+      - name: Upload final rootfs
         uses: actions/upload-artifact@v4
         with:
           name: lindroid-rootfs
-          path: out/lindroid-custom-rootfs.tar.gz
+          path: out/lindroid-rootfs.tar.gz
