@@ -1,11 +1,11 @@
-name: Build Lindroid RootFS
+name: Build and Inject RootFS in LXC Container
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build RootFS
+    name: Build RootFS with LXC and Inject
     runs-on: ubuntu-22.04
 
     steps:
@@ -15,7 +15,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt update
-          sudo apt install -y debos wget qemu-user-static
+          sudo apt install -y wget lxc qemu-user-static
 
       - name: Create base directory
         run: |
@@ -31,73 +31,43 @@ jobs:
           mkdir -p rootfs
           tar -xf base/rootfs.tar.xz -C rootfs
 
-      - name: Create Debos script (inject.yaml)
+      - name: Create LXC Container from rootfs
         run: |
-          echo "architecture: arm64" > inject.yaml
-          echo "actions:" >> inject.yaml
-          echo "  - action: Run" >> inject.yaml
-          echo "    description: Setup Lindroid repo" >> inject.yaml
-          echo "    chroot: true" >> inject.yaml
-          echo "    script: |" >> inject.yaml
-          echo "      cp /build/sources/public-key.asc /usr/share/keyrings/lindroid.asc" >> inject.yaml
-          echo "      echo \"deb [signed-by=/usr/share/keyrings/lindroid.asc] https://repo.lindroid.org/repository/lindroid trixie main\" > /etc/apt/sources.list.d/lindroid.list" >> inject.yaml
-          echo "      apt update" >> inject.yaml
-          echo "  - action: Apt" >> inject.yaml
-          echo "    description: Install Lindroid + KDE packages" >> inject.yaml
-          echo "    packages:" >> inject.yaml
-          echo "      - lindroid-quirks" >> inject.yaml
-          echo "      - nano" >> inject.yaml
-          echo "      - strace" >> inject.yaml
-          echo "      - sudo" >> inject.yaml
-          echo "      - sddm" >> inject.yaml
-          echo "      - adduser" >> inject.yaml
-          echo "      - locales" >> inject.yaml
-          echo "      - desktop-base" >> inject.yaml
-          echo "      - evtest" >> inject.yaml
-          echo "      - kde-full" >> inject.yaml
-          echo "      - kwin-wayland" >> inject.yaml
-          echo "      - qtwayland5" >> inject.yaml
-          echo "      - maliit-keyboard" >> inject.yaml
-          echo "      - sddm-theme-debian-breeze" >> inject.yaml
-          echo "      - plasma-workspace" >> inject.yaml
-          echo "      - firefox-esr" >> inject.yaml
-          echo "      - drihybris" >> inject.yaml
-          echo "      - iproute2" >> inject.yaml
-          echo "      - libpipewire-module-lindroid" >> inject.yaml
-          echo "      - libcanberra-pulse" >> inject.yaml
-          echo "      - pipewire-audio" >> inject.yaml
-          echo "      - wireplumber" >> inject.yaml
-          echo "      - pipewire-pulse" >> inject.yaml
-          echo "      - pipewire-alsa" >> inject.yaml
-          echo "      - pipewire-jack" >> inject.yaml
-          echo "      - openssh-server" >> inject.yaml
-          echo "  - action: Run" >> inject.yaml
-          echo "    description: Setup user & SSH" >> inject.yaml
-          echo "    chroot: true" >> inject.yaml
-          echo "    script: |" >> inject.yaml
-          echo "      useradd -m -s /bin/bash lindroid" >> inject.yaml
-          echo "      echo \"lindroid:lindroid\" | chpasswd" >> inject.yaml
-          echo "      echo \"PermitRootLogin no\" >> /etc/ssh/sshd_config" >> inject.yaml
-          echo "      echo \"Port 555\" >> /etc/ssh/sshd_config" >> inject.yaml
-          echo "      systemctl enable ssh" >> inject.yaml
-          echo "      systemctl enable sddm" >> inject.yaml
-          echo "  - action: Run" >> inject.yaml
-          echo "    description: Clean up APT cache" >> inject.yaml
-          echo "    chroot: true" >> inject.yaml
-          echo "    script: |" >> inject.yaml
-          echo "      apt clean" >> inject.yaml
-          echo "  - action: Pack" >> inject.yaml
-          echo "    description: Repack final rootfs" >> inject.yaml
-          echo "    file: out/lindroid-custom-rootfs.tar.gz" >> inject.yaml
+          lxc init debian trixie-container --empty
+          sudo lxc storage create lxd-pool dir
+          sudo lxc file push rootfs/ etc/  # Push rootfs contents into LXC container
 
-      - name: Run Debos
+      - name: Start LXC container
         run: |
-          cd $GITHUB_WORKSPACE
-          sudo debos --disable-fakemachine inject.yaml
+          sudo lxc start trixie-container
+
+      - name: Run Injection Script in LXC Container
+        run: |
+          sudo lxc exec trixie-container -- bash -c "
+          cp /build/sources/public-key.asc /usr/share/keyrings/lindroid.asc;
+          echo 'deb [signed-by=/usr/share/keyrings/lindroid.asc] https://repo.lindroid.org/repository/lindroid trixie main' > /etc/apt/sources.list.d/lindroid.list;
+          apt update;
+          apt install -y lindroid-quirks nano strace sudo sddm adduser locales desktop-base evtest kde-full kwin-wayland qtwayland5 maliit-keyboard sddm-theme-debian-breeze plasma-workspace firefox-esr drihybris iproute2 libpipewire-module-lindroid libcanberra-pulse pipewire-audio wireplumber pipewire-pulse pipewire-alsa pipewire-jack openssh-server;
+          useradd -m -s /bin/bash lindroid;
+          echo 'lindroid:lindroid' | chpasswd;
+          echo 'PermitRootLogin no' >> /etc/ssh/sshd_config;
+          echo 'Port 555' >> /etc/ssh/sshd_config;
+          systemctl enable ssh;
+          systemctl enable sddm;
+          apt clean;
+          "
+
+      - name: Stop LXC container
+        run: |
+          sudo lxc stop trixie-container
+
+      - name: Export and Compress Final RootFS
+        run: |
+          sudo lxc export trixie-container out/lindroid-custom-rootfs.tar.xz
 
       - name: Upload final RootFS as artifact
         uses: actions/upload-artifact@v4
         with:
           name: lindroid-custom-rootfs
-          path: out/lindroid-custom-rootfs.tar.gz
+          path: out/lindroid-custom-rootfs.tar.xz
           retention-days: 1
