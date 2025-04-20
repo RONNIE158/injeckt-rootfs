@@ -1,11 +1,11 @@
-name: Build and Inject RootFS in LXC Container
+name: Build and Inject into LXC Container
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build RootFS with LXC and Inject
+    name: Build LXC RootFS and Inject
     runs-on: ubuntu-22.04
 
     steps:
@@ -15,66 +15,59 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt update
-          sudo apt install -y wget lxc qemu-user-static
-
-      - name: Create base directory
-        run: |
-          mkdir -p base
+          sudo apt install -y debos wget lxd qemu-user-static
 
       - name: Download rootfs
         run: |
+          mkdir -p base
           wget https://images.linuxcontainers.org/images/debian/trixie/arm64/cloud/20250420_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
+          # Menambahkan file public-key.asc jika perlu
           cp public-key.asc base/public-key.asc
 
-      - name: Extract rootfs
+      - name: Initialize LXD
         run: |
-          mkdir -p rootfs
-          tar -xf base/rootfs.tar.xz -C rootfs
-
-      - name: Initialize LXD (if not already initialized)
-        run: |
-          if ! sudo lxd init --quiet; then
-            echo "LXD already initialized, skipping..."
+          if ! sudo lxd init --auto; then
+            echo "LXD initialization failed."
+            exit 1
           fi
 
-      - name: Create LXC container using custom rootfs
+      - name: Create LXC Storage Pool
         run: |
-          # Create LXC container with custom configuration
           sudo lxc storage create lxd-pool dir
+
+      - name: Create LXC container with Debian Trixie rootfs
+        run: |
+          # Buat container kosong dan tambahkan rootfs ke container
           sudo lxc init debian trixie-container --empty
-          sudo lxc config device add trixie-container root disk path=/ rootfs
+          sudo lxc config device add trixie-container root disk path=/ source=base/rootfs.tar.xz
+
+      - name: Start LXC container
+        run: |
           sudo lxc start trixie-container
 
-      - name: Push rootfs into LXC container
+      - name: Inject packages and configure container
         run: |
-          sudo lxc exec trixie-container -- mkdir -p /rootfs
-          sudo lxc exec trixie-container -- bash -c 'tar -xvf /build/sources/rootfs.tar.xz -C /rootfs'
-
-      - name: Run Injection Script in LXC Container
-        run: |
+          # Jalankan injeksi ke dalam container dengan skrip lindroid.plasma.yml atau melalui perintah lainnya
           sudo lxc exec trixie-container -- bash -c "
-          cp /build/sources/public-key.asc /usr/share/keyrings/lindroid.asc;
-          echo 'deb [signed-by=/usr/share/keyrings/lindroid.asc] https://repo.lindroid.org/repository/lindroid trixie main' > /etc/apt/sources.list.d/lindroid.list;
-          apt update;
-          apt install -y lindroid-quirks nano strace sudo sddm adduser locales desktop-base evtest kde-full kwin-wayland qtwayland5 maliit-keyboard sddm-theme-debian-breeze plasma-workspace firefox-esr drihybris iproute2 libpipewire-module-lindroid libcanberra-pulse pipewire-audio wireplumber pipewire-pulse pipewire-alsa pipewire-jack openssh-server;
-          useradd -m -s /bin/bash lindroid;
-          echo 'lindroid:lindroid' | chpasswd;
-          echo 'PermitRootLogin no' >> /etc/ssh/sshd_config;
-          echo 'Port 555' >> /etc/ssh/sshd_config;
-          systemctl enable ssh;
-          systemctl enable sddm;
-          apt clean;
+            # Eksekusi perintah setup yang diinginkan dalam container
+            apt update
+            apt install -y sudo lindroid-quirks kde-full kwin-wayland
+            useradd -m -s /bin/bash lindroid
+            echo 'lindroid:lindroid' | chpasswd
+            systemctl enable ssh
+            systemctl enable sddm
           "
 
-      - name: Stop LXC container
+      - name: Clean up APT cache
+        run: |
+          sudo lxc exec trixie-container -- apt clean
+
+      - name: Repack LXC container rootfs
         run: |
           sudo lxc stop trixie-container
-
-      - name: Export and Compress Final RootFS
-        run: |
           sudo lxc export trixie-container out/lindroid-custom-rootfs.tar.xz
 
-      - name: Upload final RootFS as artifact
+      - name: Upload custom rootfs as artifact
         uses: actions/upload-artifact@v4
         with:
           name: lindroid-custom-rootfs
