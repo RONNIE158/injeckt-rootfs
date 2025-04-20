@@ -20,8 +20,14 @@ jobs:
       - name: Create output folder
         run: mkdir -p out
 
+      - name: Copy public-key.asc to root directory
+        run: |
+          # Menyalin public-key.asc ke direktori root sebelum Debos dijalankan
+          cp public-key.asc /tmp/
+
       - name: Run Debos with inject.yaml
-        run: sudo debos --disable-fakemachine inject.yaml
+        run: |
+          sudo debos --disable-fakemachine inject.yaml
 
       - name: Upload final rootfs
         uses: actions/upload-artifact@v4
