@@ -17,6 +17,9 @@ actions:
       echo "deb [trusted=yes] https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid-production.list
       apt update
 
+      # Instal OpenSSH server jika belum ada
+      apt install -y openssh-server
+
       # Membuat user 'lindroid' dan set password
       useradd -m -s /bin/bash lindroid
       echo "lindroid:lindroid" | chpasswd
@@ -43,8 +46,6 @@ actions:
   - action: Apt
     description: Install additional packages
     packages:
-      - libhybris
-      - libhybris-test
       - lindroid-quirks
       - nano
       - strace
