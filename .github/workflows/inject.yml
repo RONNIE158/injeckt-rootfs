@@ -1,0 +1,31 @@
+name: Inject Packages into RootFS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inject:
+    name: Inject & Repack RootFS
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Debos & dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y debos qemu-user-static wget unzip
+
+      - name: Create output folder
+        run: mkdir -p out
+
+      - name: Run Debos with inject.yaml
+        run: sudo debos --disable-fakemachine inject.yaml
+
+      - name: Upload final rootfs
+        uses: actions/upload-artifact@v4
+        with:
+          name: lindroid-custom-rootfs
+          path: out/lindroid-custom-rootfs.tar.gz
+          retention-days: 3
