@@ -31,15 +31,24 @@ jobs:
           mkdir -p rootfs
           tar -xf base/rootfs.tar.xz -C rootfs
 
-      - name: Install and Configure LXC Container
+      - name: Initialize LXD (if not already initialized)
         run: |
-          sudo lxc init debian trixie-container --empty
-          sudo lxc storage create lxd-pool dir
-          sudo lxc file push rootfs/ etc/  # Push rootfs contents into LXC container
+          if ! sudo lxd init --quiet; then
+            echo "LXD already initialized, skipping..."
+          fi
 
-      - name: Start LXC container
+      - name: Create LXC container using custom rootfs
         run: |
+          # Create LXC container with custom configuration
+          sudo lxc storage create lxd-pool dir
+          sudo lxc init debian trixie-container --empty
+          sudo lxc config device add trixie-container root disk path=/ rootfs
           sudo lxc start trixie-container
+
+      - name: Push rootfs into LXC container
+        run: |
+          sudo lxc exec trixie-container -- mkdir -p /rootfs
+          sudo lxc exec trixie-container -- bash -c 'tar -xvf /build/sources/rootfs.tar.xz -C /rootfs'
 
       - name: Run Injection Script in LXC Container
         run: |
