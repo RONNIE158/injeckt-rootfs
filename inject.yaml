@@ -1,83 +1,62 @@
 architecture: arm64
 
 actions:
-  - action: Extract
-    description: Download and extract rootfs from mirror
-    source: "https://mirrors.tuna.tsinghua.edu.cn/lxc-images/debian/tarballs/debian-11.0-arm64.tar.xz"
-    file: base/rootfs.tar.xz
+  - action: Unpack
+    description: Gunzip rootfs hasil ekstraksi manual
+    directory: base/rootfs
 
   - action: Run
-    description: Setup Lindroid repo and update system
     chroot: true
+    description: Tambah repo Lindroid dan update
     script: |
-      # Menyalin public-key.asc ke dalam chroot
       cp /root/public-key.asc /etc/apt/trusted.gpg.d/
-      
-      # Setup repository Lindroid dan update sistem
-      echo "deb [trusted=yes] https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid-production.list
+      echo "deb https://repo.lindroid.org/repository/lindroid trixie main" > /etc/apt/sources.list.d/lindroid-production.list
       apt update
 
-      # Instal OpenSSH server jika belum ada
-      apt install -y openssh-server
-
-      # Membuat user 'lindroid' dan set password
-      useradd -m -s /bin/bash lindroid
-      echo "lindroid:lindroid" | chpasswd
-
-      # Menambahkan user 'lindroid' ke sudoers agar bisa menjalankan sudo
-      echo "lindroid ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/lindroid
-
-      # Konfigurasi SSH agar bisa login dengan user lindroid pada port 555
-      echo "Port 555" >> /etc/ssh/sshd_config
-      echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
-      systemctl enable ssh
-
-      # Set password untuk user lindroid
-      echo "lindroid:lindroid" | chpasswd
-
-      # Restart SSH service agar perubahan diterapkan
-      systemctl restart ssh
-
-      # Konfigurasi SDDM untuk login dengan user lindroid
-      echo "[Autologin]" > /etc/sddm.conf
-      echo "User=lindroid" >> /etc/sddm.conf
-      echo "Session=plasma" >> /etc/sddm.conf
-
   - action: Apt
-    description: Install additional packages
+    description: Install desktop, audio, network, dev tools
     packages:
-      - lindroid-quirks
-      - nano
-      - strace
+      - openssh-server
       - sudo
       - sddm
+      - kde-full
+      - lindroid-quirks
+      - qtwayland5
+      - plasma-workspace
+      - maliit-keyboard
+      - sddm-theme-debian-breeze
+      - drihybris
+      - nano
+      - strace
       - adduser
       - locales
       - desktop-base
       - evtest
-      - kde-full
-      - kwin-wayland
-      - qtwayland5
-      - maliit-keyboard
-      - sddm-theme-debian-breeze
-      - plasma-workspace
-      - firefox-esr
-      - drihybris
       - iproute2
-      - libpipewire-module-lindroid
-      - libcanberra-pulse
       - pipewire-audio
-      - wireplumber
       - pipewire-pulse
       - pipewire-alsa
       - pipewire-jack
+      - wireplumber
+      - libcanberra-pulse
+      - libpipewire-module-lindroid
+      - firefox-esr
 
   - action: Run
-    description: Clean up APT cache
     chroot: true
+    description: Setup user lindroid dan SSH
     script: |
-      apt clean
+      useradd -m -s /bin/bash lindroid
+      echo "lindroid:lindroid" | chpasswd
+      echo "lindroid ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/lindroid
+      echo "Port 555" >> /etc/ssh/sshd_config
+      systemctl enable ssh
+      echo -e "[Autologin]\nUser=lindroid\nSession=plasma" > /etc/sddm.conf
+
+  - action: Run
+    chroot: true
+    script: apt clean
 
   - action: Pack
-    description: Repack customized rootfs
+    description: Buat arsip rootfs final
     file: out/lindroid-custom-rootfs.tar.gz
