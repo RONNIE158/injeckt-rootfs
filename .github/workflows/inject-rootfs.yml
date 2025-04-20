@@ -1,11 +1,11 @@
-name: Inject Packages into RootFS
+name: Inject Packages and Configure User
 
 on:
   workflow_dispatch:
 
 jobs:
   inject:
-    name: Inject & Repack RootFS
+    name: Inject & Repack RootFS with User 'lindroid'
     runs-on: ubuntu-22.04
 
     steps:
