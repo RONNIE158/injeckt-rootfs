@@ -31,9 +31,9 @@ jobs:
           mkdir -p rootfs
           tar -xf base/rootfs.tar.xz -C rootfs
 
-      - name: Create LXC Container from rootfs
+      - name: Install and Configure LXC Container
         run: |
-          lxc init debian trixie-container --empty
+          sudo lxc init debian trixie-container --empty
           sudo lxc storage create lxd-pool dir
           sudo lxc file push rootfs/ etc/  # Push rootfs contents into LXC container
 
