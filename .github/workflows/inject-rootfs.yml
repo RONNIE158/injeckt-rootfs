@@ -9,27 +9,21 @@ jobs:
     name: Inject Lindroid Packages
 
     steps:
-      - name: Checkout repo
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y debos qemu-user-static wget xz-utils
+          sudo apt install -y debos qemu-user-static xz-utils
 
-      - name: Download rootfs from linuxcontainers.org
-        run: |
-          mkdir -p base/rootfs
-          wget https://images.linuxcontainers.org/images/debian/trixie/arm64/default/20240410_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
-          sudo tar -xpf base/rootfs.tar.xz -C base/rootfs
-
-      - name: Copy public-key.asc
+      - name: Copy public-key
         run: sudo cp public-key.asc /root/public-key.asc
 
       - name: Run Debos
         run: sudo debos --disable-fakemachine inject.yaml
 
-      - name: Upload final rootfs
+      - name: Upload Final RootFS
         uses: actions/upload-artifact@v4
         with:
           name: lindroid-rootfs
