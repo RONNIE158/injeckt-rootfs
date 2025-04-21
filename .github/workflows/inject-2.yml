@@ -14,8 +14,8 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt update
-          sudo apt install -y debos wget lxd qemu-user-static
+          sudo apt install -y debos wget qemu-user-static snapd
+          sudo snap install lxd
 
       - name: Download rootfs
         run: |
