@@ -1,4 +1,4 @@
-name: Build and Inject into LXC Container test 2
+name: Build and Inject into LXC Container
 
 on:
   workflow_dispatch:
@@ -14,13 +14,9 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          sudo apt update
           sudo apt install -y debos wget qemu-user-static snapd
           sudo snap install lxd
-
-      - name: Setup QEMU for ARM architecture
-        run: |
-          sudo apt install -y qemu qemu-user-static
-          sudo cp $(which qemu-arm-static) /usr/bin/
 
       - name: Download rootfs
         run: |
@@ -28,6 +24,12 @@ jobs:
           wget https://images.linuxcontainers.org/images/debian/trixie/arm64/cloud/20250420_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
           # Menambahkan file public-key.asc jika perlu
           cp public-key.asc base/public-key.asc
+
+      - name: Setup QEMU for ARM64 Emulation
+        run: |
+          # Install qemu-static untuk emulasi arsitektur ARM64 pada host x86_64
+          sudo apt install -y qemu-user-static
+          sudo update-binfmts --enable qemu-aarch64
 
       - name: Extract rootfs
         run: |
