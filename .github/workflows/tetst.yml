@@ -1,4 +1,4 @@
-name: Build and Inject into LXC Container test 2
+name: Build and Inject into LXC Container teat 2
 
 on:
   workflow_dispatch:
@@ -14,7 +14,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt update
           sudo apt install -y debos wget qemu-user-static snapd
           sudo snap install lxd
 
@@ -22,21 +21,34 @@ jobs:
         run: |
           mkdir -p base
           wget https://images.linuxcontainers.org/images/debian/trixie/arm64/cloud/20250420_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
+          # Tambahkan public-key jika perlu
           cp public-key.asc base/public-key.asc || true
 
       - name: Initialize LXD
         run: |
-          sudo lxd waitready
-          sudo lxd init --auto || true
+          sudo lxd init --auto
 
-      - name: Create and configure LXC container
+      - name: Import rootfs as LXC image
         run: |
           mkdir -p base/rootfs
           tar -xf base/rootfs.tar.xz -C base/rootfs
 
-          sudo lxc init trixie-container --empty
-          sudo lxc config device add trixie-container root disk source=$(realpath base/rootfs) path=/
+          echo "architecture: arm64
+          creation_date: $(date +%s)
+          properties:
+            description: Debian Trixie rootfs
+            os: debian
+            release: trixie" > base/metadata.yaml
 
+          cd base
+          tar -cf ../debian-trixie.tar metadata.yaml rootfs
+          cd ..
+
+          sudo lxc image import debian-trixie.tar --alias debian-trixie
+
+      - name: Create LXC container from image
+        run: |
+          sudo lxc init debian-trixie trixie-container
           sudo lxc start trixie-container
           sleep 10
           sudo lxc exec trixie-container -- touch /.container-ready
@@ -48,8 +60,8 @@ jobs:
             apt install -y sudo lindroid-quirks kde-full kwin-wayland
             useradd -m -s /bin/bash lindroid
             echo 'lindroid:lindroid' | chpasswd
-            systemctl enable ssh || true
-            systemctl enable sddm || true
+            systemctl enable ssh
+            systemctl enable sddm
           "
 
       - name: Clean up APT cache
