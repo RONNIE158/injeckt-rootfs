@@ -1,4 +1,4 @@
-name: Build and Inject into LXC Container
+name: Build and Inject into LXC Container test 2
 
 on:
   workflow_dispatch:
