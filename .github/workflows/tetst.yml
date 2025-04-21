@@ -1,0 +1,70 @@
+name: Build and Inject into LXC Container test 2
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build LXC RootFS and Inject
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y debos wget qemu-user-static snapd
+          sudo snap install lxd
+
+      - name: Download rootfs
+        run: |
+          mkdir -p base
+          wget https://images.linuxcontainers.org/images/debian/trixie/arm64/cloud/20250420_05:24/rootfs.tar.xz -O base/rootfs.tar.xz
+          cp public-key.asc base/public-key.asc || true
+
+      - name: Initialize LXD
+        run: |
+          sudo lxd waitready
+          sudo lxd init --auto || true
+
+      - name: Create and configure LXC container
+        run: |
+          mkdir -p base/rootfs
+          tar -xf base/rootfs.tar.xz -C base/rootfs
+
+          sudo lxc init trixie-container --empty
+          sudo lxc config device add trixie-container root disk source=$(realpath base/rootfs) path=/
+
+          sudo lxc start trixie-container
+          sleep 10
+          sudo lxc exec trixie-container -- touch /.container-ready
+
+      - name: Inject packages and configure container
+        run: |
+          sudo lxc exec trixie-container -- bash -c "
+            apt update
+            apt install -y sudo lindroid-quirks kde-full kwin-wayland
+            useradd -m -s /bin/bash lindroid
+            echo 'lindroid:lindroid' | chpasswd
+            systemctl enable ssh || true
+            systemctl enable sddm || true
+          "
+
+      - name: Clean up APT cache
+        run: |
+          sudo lxc exec trixie-container -- apt clean
+
+      - name: Repack LXC container rootfs
+        run: |
+          mkdir -p out
+          sudo lxc stop trixie-container
+          sudo lxc export trixie-container out/lindroid-custom-rootfs.tar.xz
+
+      - name: Upload custom rootfs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lindroid-custom-rootfs
+          path: out/lindroid-custom-rootfs.tar.xz
+          retention-days: 1
