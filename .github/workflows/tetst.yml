@@ -1,4 +1,4 @@
-name: Build and Inject into LXC Container test 2
+name: Build and Inject into LXC Container
 
 on:
   workflow_dispatch:
@@ -14,9 +14,13 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt update
           sudo apt install -y debos wget qemu-user-static snapd
           sudo snap install lxd
+
+      - name: Setup QEMU for ARM architecture
+        run: |
+          sudo apt install -y qemu qemu-user-static
+          sudo cp $(which qemu-arm-static) /usr/bin/
 
       - name: Download rootfs
         run: |
@@ -25,11 +29,10 @@ jobs:
           # Menambahkan file public-key.asc jika perlu
           cp public-key.asc base/public-key.asc
 
-      - name: Setup QEMU for ARM64 Emulation
+      - name: Extract rootfs
         run: |
-          # Install qemu-static untuk emulasi arsitektur ARM64 pada host x86_64
-          sudo apt install -y qemu-user-static
-          sudo update-binfmts --enable qemu-aarch64
+          mkdir -p base/rootfs
+          tar -xf base/rootfs.tar.xz -C base/rootfs
 
       - name: Initialize LXD
         run: |
@@ -44,7 +47,10 @@ jobs:
 
       - name: Create LXC container with Debian Trixie rootfs
         run: |
-          sudo lxc init debian-trixie trixie-container --empty
+          # Inisialisasi container kosong
+          sudo lxc init --empty trixie-container
+          
+          # Tambahkan rootfs ke container (pastikan realpath mengarah ke base/rootfs)
           sudo lxc config device add trixie-container root disk source=$(realpath base/rootfs) path=/
 
       - name: Start LXC container
@@ -54,6 +60,7 @@ jobs:
 
       - name: Inject packages and configure container
         run: |
+          # Jalankan injeksi ke dalam container dengan skrip lindroid.plasma.yml atau melalui perintah lainnya
           sudo lxc exec trixie-container -- bash -c "
             # Eksekusi perintah setup yang diinginkan dalam container
             apt update
